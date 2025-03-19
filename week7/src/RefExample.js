@@ -2,10 +2,10 @@ import React, { useState, useRef, useEffect } from "react";
 
 export default function Counter() {
   const [count, setCount] = useState(0);
-  const prevCountRef = useRef(null); // 1️⃣ useRef to store previous value
+  const prevCountRef = useRef(null); 
 
   useEffect(() => {
-    prevCountRef.current = count; // 2️⃣ Update ref with the current count after render
+    prevCountRef.current = count; 
   });
 
   return (
