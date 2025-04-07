@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en" ng-app="studentRecordsApp">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Records Management</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.8.2/angular.min.js"></script>
+    <style>
+        .nav-tabs {
+            margin-bottom: 20px;
+        }
+        .form-error {
+            color: #dc3545;
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+        }
+        .error-summary {
+            margin-top: 20px;
+        }
+        .action-buttons {
+            white-space: nowrap;
+        }
+        [ng-cloak] {
+            display: none !important;
+        }
+        .search-container {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        @media (max-width: 768px) {
+            .search-container {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body ng-controller="StudentController" ng-cloak>
+    <div class="container py-4">
+        <h1 class="text-center mb-4">Student Records Management</h1>
+        
+        <!-- Tabs -->
+        <ul class="nav nav-tabs">
+            <li class="nav-item">
+                <a class="nav-link" ng-class="{'active': activeTab === 'list'}" href="#" ng-click="setActiveTab('list')">View Students</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" ng-class="{'active': activeTab === 'add'}" href="#" ng-click="setActiveTab('add')">{{editMode ? 'Edit Student' : 'Add Student'}}</a>
+            </li>
+        </ul>
+        
+        <!-- List Students Tab -->
+        <div ng-show="activeTab === 'list'">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">Student Records</h5>
+                    <div class="search-container">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i>🔍</span>
+                            <input type="text" class="form-control" placeholder="Search students..." ng-model="searchTerm">
+                        </div>
+                        <select class="form-select" ng-model="filterDepartment">
+                            <option value="">All Departments</option>
+                            <option ng-repeat="dept in getDepartments()" value="{{dept}}">{{dept}}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div ng-if="getFilteredStudents().length === 0" class="text-center py-4 text-muted">
+                        No students found.
+                    </div>
+                    <div class="table-responsive" ng-if="getFilteredStudents().length > 0">
+                        <table class="table table-striped table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Email</th>
+                                    <th>Phone</th>
+                                    <th>Department</th>
+                                    <th>Grade</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr ng-repeat="student in getFilteredStudents()">
+                                    <td>{{student.firstName}} {{student.lastName}}</td>
+                                    <td>{{student.email}}</td>
+                                    <td>{{student.phone}}</td>
+                                    <td>{{student.department}}</td>
+                                    <td>{{student.grade}}</td>
+                                    <td class="action-buttons">
+                                        <button class="btn btn-sm btn-outline-primary me-1" ng-click="editStudent(student)">
+                                            ✏️ Edit
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" ng-click="deleteStudent(student.id)">
+                                            🗑️ Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Add/Edit Student Tab -->
+        <div ng-show="activeTab === 'add'">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title">{{editMode ? 'Edit Student' : 'Add New Student'}}</h5>
+                </div>
+                <div class="card-body">
+                    <form name="studentForm" ng-submit="submitForm()" novalidate>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="firstName" class="form-label">First Name</label>
+                                <input 
+                                    type="text" 
+                                    class="form-control" 
+                                    id="firstName" 
+                                    name="firstName"
+                                    ng-model="formData.firstName" 
+                                    ng-class="{'is-invalid': studentForm.firstName.$invalid && (studentForm.firstName.$dirty || formSubmitted)}"
+                                    required>
+                                <div class="form-error" ng-show="studentForm.firstName.$invalid && (studentForm.firstName.$dirty || formSubmitted)">
+                                    <span ng-show="studentForm.firstName.$error.required">First name is required</span>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="lastName" class="form-label">Last Name</label>
+                                <input 
+                                    type="text" 
+                                    class="form-control" 
+                                    id="lastName" 
+                                    name="lastName"
+                                    ng-model="formData.lastName" 
+                                    ng-class="{'is-invalid': studentForm.lastName.$invalid && (studentForm.lastName.$dirty || formSubmitted)}"
+                                    required>
+                                <div class="form-error" ng-show="studentForm.lastName.$invalid && (studentForm.lastName.$dirty || formSubmitted)">
+                                    <span ng-show="studentForm.lastName.$error.required">Last name is required</span>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="email" class="form-label">Email</label>
+                                <input 
+                                    type="email" 
+                                    class="form-control" 
+                                    id="email" 
+                                    name="email"
+                                    ng-model="formData.email" 
+                                    ng-class="{'is-invalid': studentForm.email.$invalid && (studentForm.email.$dirty || formSubmitted)}"
+                                    required
+                                    ng-pattern="/^[^\s@]+@[^\s@]+\.[^\s@]+$/">
+                                <div class="form-error" ng-show="studentForm.email.$invalid && (studentForm.email.$dirty || formSubmitted)">
+                                    <span ng-show="studentForm.email.$error.required">Email is required</span>
+                                    <span ng-show="studentForm.email.$error.pattern">Invalid email format</span>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="phone" class="form-label">Phone (XXX-XXX-XXXX)</label>
+                                <input 
+                                    type="text" 
+                                    class="form-control" 
+                                    id="phone" 
+                                    name="phone"
+                                    ng-model="formData.phone" 
+                                    ng-class="{'is-invalid': studentForm.phone.$invalid && (studentForm.phone.$dirty || formSubmitted)}"
+                                    required
+                                    ng-pattern="/^\d{3}-\d{3}-\d{4}$/"
+                                    placeholder="555-123-4567">
+                                <div class="form-error" ng-show="studentForm.phone.$invalid && (studentForm.phone.$dirty || formSubmitted)">
+                                    <span ng-show="studentForm.phone.$error.required">Phone number is required</span>
+                                    <span ng-show="studentForm.phone.$error.pattern">Phone format should be XXX-XXX-XXXX</span>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="grade" class="form-label">Grade</label>
+                                <input 
+                                    type="text" 
+                                    class="form-control" 
+                                    id="grade" 
+                                    name="grade"
+                                    ng-model="formData.grade" 
+                                    ng-class="{'is-invalid': studentForm.grade.$invalid && (studentForm.grade.$dirty || formSubmitted)}"
+                                    required
+                                    placeholder="A, B+, C, etc.">
+                                <div class="form-error" ng-show="studentForm.grade.$invalid && (studentForm.grade.$dirty || formSubmitted)">
+                                    <span ng-show="studentForm.grade.$error.required">Grade is required</span>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="department" class="form-label">Department</label>
+                                <select 
+                                    class="form-select" 
+                                    id="department" 
+                                    name="department"
+                                    ng-model="formData.department" 
+                                    ng-class="{'is-invalid': studentForm.department.$invalid && (studentForm.department.$dirty || formSubmitted)}"
+                                    required>
+                                    <option value="" disabled selected>Select department</option>
+                                    <option value="Computer Science">Computer Science</option>
+                                    <option value="Engineering">Engineering</option>
+                                    <option value="Business">Business</option>
+                                    <option value="Arts">Arts</option>
+                                    <option value="Medicine">Medicine</option>
+                                </select>
+                                <div class="form-error" ng-show="studentForm.department.$invalid && (studentForm.department.$dirty || formSubmitted)">
+                                    <span ng-show="studentForm.department.$error.required">Department is required</span>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="enrollmentDate" class="form-label">Enrollment Date</label>
+                                <input 
+                                    type="date" 
+                                    class="form-control" 
+                                    id="enrollmentDate" 
+                                    name="enrollmentDate"
+                                    ng-model="formData.enrollmentDate" 
+                                    ng-class="{'is-invalid': studentForm.enrollmentDate.$invalid && (studentForm.enrollmentDate.$dirty || formSubmitted)}"
+                                    required>
+                                <div class="form-error" ng-show="studentForm.enrollmentDate.$invalid && (studentForm.enrollmentDate.$dirty || formSubmitted)">
+                                    <span ng-show="studentForm.enrollmentDate.$error.required">Enrollment date is required</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="alert alert-danger error-summary" ng-show="studentForm.$invalid && formSubmitted">
+                            Please fix the errors in the form before submitting.
+                        </div>
+                        
+                        <div class="d-flex justify-content-end gap-2 mt-4">
+                            <button type="button" class="btn btn-outline-secondary" ng-click="resetForm()">
+                                Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                {{editMode ? 'Update Student' : 'Add Student'}}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // AngularJS Application
+        var app = angular.module('studentRecordsApp', []);
+        
+        app.controller('StudentController', function($scope) {
+            // Initialize active tab
+            $scope.activeTab = 'list';
+            
+            // Initialize students array with sample data
+            $scope.students = [
+                {
+                    id: 1,
+                    firstName: "Ishwari",
+                    lastName: "Shinde",
+                    email: "ishwari.shinde@gmail.com",
+                    phone: "555-123-4567",
+                    grade: "A",
+                    department: "Information Technology",
+                    enrollmentDate: "2024-09-01"
+                },
+                {
+                    id: 2,
+                    firstName: "Pranati",
+                    lastName: "Arun",
+                    email: "pranati.arun@gmail.com",
+                    phone: "555-987-6543",
+                    grade: "B+",
+                    department: "Information Technology",
+                    enrollmentDate: "2024-08-15"
+                },
+                {
+                    id: 3,
+                    firstName: "Maheshwari",
+                    lastName: "Anvekar",
+                    email: "maheshwari.anvekar@gmail.com",
+                    phone: "555-456-7890",
+                    grade: "A-",
+                    department: "EXTC",
+                    enrollmentDate: "2024-09-05"
+                }
+            ];
+            
+            // Initialize form data
+            $scope.formData = {
+                firstName: "",
+                lastName: "",
+                email: "",
+                phone: "",
+                grade: "",
+                department: "",
+                enrollmentDate: ""
+            };
+            
+            // Initialize edit mode
+            $scope.editMode = false;
+            $scope.editId = null;
+            
+            // Initialize search and filter
+            $scope.searchTerm = "";
+            $scope.filterDepartment = "";
+            
+            // Form submission flag
+            $scope.formSubmitted = false;
+            
+            // Set active tab
+            $scope.setActiveTab = function(tab) {
+                $scope.activeTab = tab;
+            };
+            // Get filtered students based on search term and department
+            $scope.getFilteredStudents = function() {
+                return $scope.students.filter(function(student) {
+                    // Check if student matches search term
+                    var matchesSearch = 
+                        student.firstName.toLowerCase().includes($scope.searchTerm.toLowerCase()) ||
+                        student.lastName.toLowerCase().includes($scope.searchTerm.toLowerCase()) ||
+                        student.email.toLowerCase().includes($scope.searchTerm.toLowerCase());
+                    
+                    // Check if student matches department filter
+                    var matchesDepartment = 
+                        !$scope.filterDepartment || 
+                        student.department === $scope.filterDepartment;
+                    
+                    return matchesSearch && matchesDepartment;
+                });
+            };
+            
+            // Get unique departments for filter dropdown
+            $scope.getDepartments = function() {
+                var departments = [];
+                $scope.students.forEach(function(student) {
+                    if (!departments.includes(student.department)) {
+                        departments.push(student.department);
+                    }
+                });
+                return departments;
+            };
+            
+            // Submit form
+            $scope.submitForm = function() {
+                $scope.formSubmitted = true;
+                
+                // Check if form is valid
+                if ($scope.studentForm.$valid) {
+                    if ($scope.editMode) {
+                        // Update existing student
+                        $scope.students = $scope.students.map(function(student) {
+                            if (student.id === $scope.editId) {
+                                return {
+                                    id: student.id,
+                                    firstName: $scope.formData.firstName,
+                                    lastName: $scope.formData.lastName,
+                                    email: $scope.formData.email,
+                                    phone: $scope.formData.phone,
+                                    grade: $scope.formData.grade,
+                                    department: $scope.formData.department,
+                                    enrollmentDate: $scope.formData.enrollmentDate
+                                };
+                            }
+                            return student;
+                        });
+                        
+                        // Reset edit mode
+                        $scope.editMode = false;
+                        $scope.editId = null;
+                    } else {
+                        // Add new student
+                        var newStudent = {
+                            id: Date.now(),
+                            firstName: $scope.formData.firstName,
+                            lastName: $scope.formData.lastName,
+                            email: $scope.formData.email,
+                            phone: $scope.formData.phone,
+                            grade: $scope.formData.grade,
+                            department: $scope.formData.department,
+                            enrollmentDate: $scope.formData.enrollmentDate
+                        };
+                        
+                        $scope.students.push(newStudent);
+                    }
+                    
+                    // Reset form
+                    $scope.resetForm();
+                    
+                    // Switch to list tab
+                    $scope.activeTab = 'list';
+                }
+            };
+            
+            // Reset form
+            $scope.resetForm = function() {
+                $scope.formData = {
+                    firstName: "",
+                    lastName: "",
+                    email: "",
+                    phone: "",
+                    grade: "",
+                    department: "",
+                    enrollmentDate: ""
+                };
+                
+                $scope.editMode = false;
+                $scope.editId = null;
+                $scope.formSubmitted = false;
+                
+                if ($scope.studentForm) {
+                    $scope.studentForm.$setPristine();
+                    $scope.studentForm.$setUntouched();
+                }
+            };
+            
+            // Edit student
+            $scope.editStudent = function(student) {
+                $scope.formData = {
+                    firstName: student.firstName,
+                    lastName: student.lastName,
+                    email: student.email,
+                    phone: student.phone,
+                    grade: student.grade,
+                    department: student.department,
+                    enrollmentDate: student.enrollmentDate
+                };
+                
+                $scope.editMode = true;
+                $scope.editId = student.id;
+                $scope.activeTab = 'add';
+                $scope.formSubmitted = false;
+            };
+            
+            // Delete student
+            $scope.deleteStudent = function(id) {
+                if (confirm('Are you sure you want to delete this student?')) {
+                    $scope.students = $scope.students.filter(function(student) {
+                        return student.id !== id;
+                    });
+                }
+            };
+        });
+    </script>
+</body>
+</html>
